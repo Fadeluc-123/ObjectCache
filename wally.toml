@@ -16,4 +16,4 @@ include = [
 # TableUtil = "sleitnick/table-util@1.2.0"
 
 [dev-dependencies]
-TestEZ = "roblox/testez@0.4.1"
+objectcache = "fadeluc-123/objectcache@1.0.0"
