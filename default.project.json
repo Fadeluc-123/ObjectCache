@@ -1,5 +1,5 @@
 {
-    "name": "ObjectCache",
+    "name": "objectcache",
 
     "tree": {
         "$path": "src"
