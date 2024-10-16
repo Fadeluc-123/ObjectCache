@@ -4,34 +4,6 @@
     "tree": {
         "$className": "DataModel",
 
-        "Workspace": {
-            "$className": "Workspace",
-            "level1": {
-                "$className": "Folder",
-                "$properties": {
-                    "Tags": ["level1"]
-                },
-                "level2": {
-                    "$className": "Folder",
-                    "$properties": {
-                        "Tags": ["level2"]
-                    },
-                    "level3": {
-                        "$className": "Configuration",
-                        "$properties": {
-                            "Tags": ["level3"]
-                        }
-                    }
-                },
-                "other": {
-                    "$className": "Configuration",
-                    "$properties": {
-                        "Tags": ["level2", "otherLevel2"]
-                    }
-                }
-            }
-        },
-
         "ReplicatedStorage": {
             "$className": "ReplicatedStorage",
             "Packages": {
