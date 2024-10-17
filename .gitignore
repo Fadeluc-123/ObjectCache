@@ -1,3 +1,18 @@
-*.lock
-.DS_Store
-*.rbxl
+# Project place file
+/Object-Cache.rbxlx
+
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+# Sourcemap
+sourcemap.json
+
+Packages
+ServerPackages
+/*.lock
+*.yml
+
+# docs
+/docs
+node_modules

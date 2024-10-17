@@ -9,17 +9,24 @@ local Packages = ReplicatedStorage.Packages
 
 local Promise = require(Packages.Promise)
 
-local Module = {}
-Module.__index = Module
+local HUGE: number = math.huge
+local LARGE_CFRAME: CFrame = CFrame.new(HUGE, HUGE, HUGE)
 
-function Module.new()
-    local self = setmetatable({}, Module)
-    self.cache = {
-        inUse = {} -- Stores the objects being used
-    } :: {string: {}}
+export type object = (Model | BasePart | Instance) | nil
 
-    return self
-end
+export type category = {
+    items: {object | nil}
+}
+
+export type inUse = {
+    object: object | nil,
+    category: string | nil
+}
+
+local Module = {
+    cache = {} :: {string: {}},
+    inUse = {} :: inUse -- Stores the objects being used
+}
 
 --[[
     Create a cache category to store cached items into, an example
@@ -29,11 +36,13 @@ end
     to retrieve an item from a specific category
 --]]
 
-function Module:create(category: string)
-    if not self.cache[category] then
-        self.cache[category] = {
-            items = {} :: {[string]: Model | Instance},
+function Module:create(category: string) : category | nil
+    if not Module.cache[category] then
+        Module.cache[category] = {
+            items = {}
         }
+
+        return Module.cache[category]
     else
         warn(`{category} Category already exists!`)
     end
@@ -48,26 +57,30 @@ end
 --]]
 
 function Module:add(
-    object: (Model | BasePart) | nil,
-    count: number,
+    object: object | nil,
+    count: number?,
     parent: Folder?,
     category: string?
-)
+) : boolean
 
     assert(object ~= nil, `{object} passed through object parameter is nil!`)
     assert(object:IsDescendantOf(game), `{object} passed through object parameter is not a descendant of game!`)
     assert(parent ~= nil, `{parent} passed through parent parameter is nil!`)
-    assert(self.cache[category] ~= nil, `Category does not exist!`)
+    assert(Module.cache[category] ~= nil, `Category does not exist!`)
 
     -- Clone objects and add them to their categories cache
-    local cacheCategory: {} = self.cache[category]
+    local cacheCategory: category = Module.cache[category]
     Promise.new(function()
         for _ = 0, count or 1, 1 do
-            local clone: Model | BasePart = object:Clone()
+            local clone: object = object:Clone()
+            Module:_reset(object)
             clone.Parent = parent
+
             table.insert(cacheCategory.items, clone)
         end
     end)
+
+    return true
 end
 
 --[[
@@ -75,17 +88,15 @@ end
     specific category
     
     @category: The category to attempt to find a cached item
-    @item: The name of the cached item that you want to retrieve
     @count: The amount of items you want to get, defaults to 1, returns
     an array of objects if count is greater than 1
 --]]
 
-function Module:get(category: string, item: string, count: number?) : (Model | BasePart | {Instance}) | nil
-    assert(self.cache[category] ~= nil, `"{category}" Category does not exist`)
-    assert(item ~= nil and item ~= "", `{item} Item parameter is invalid, make sure it isn't nil!`)
+function Module:get(category: string, count: number?) : ({object}) | nil
+    assert(Module.cache[category] ~= nil, `"{category}" Category does not exist`)
 
-    local cacheCategory: {} = self.cache[category]
-    local items: {} = cacheCategory.items
+    local cacheCategory: category = Module.cache[category]
+    local items: typeof(category.items) = cacheCategory.items
 
     if next(items) ~= nil then
         if count then
@@ -93,35 +104,47 @@ function Module:get(category: string, item: string, count: number?) : (Model | B
             local newCount: number = if #items >= count then count else #items
 
             for index = 0, newCount, 1 do
-                table.insert(itemsToReturn, items[index])
+                local object: object = items[index]
+                if not object then
+                    continue
+                end
+
+                Module.inUse[object] = {
+                    instance = object,
+                    category = category,
+                }
+
+                table.insert(itemsToReturn, object)
+                table.remove(items, index)
             end
+
+            return itemsToReturn
         else
             local object: Instance = items[1]
-            self.inUse[object] = {
+            Module.inUse[object] = {
                 instance = object,
                 category = category,
             }
 
-            items[1] = nil -- We've taken the object out of the cache, since it's being used (needs to be returned)
-            return object
+            table.remove(items, 1) -- We've taken the object out of the cache, since it's being used (needs to be returned)
+            return {object}
         end
     end
 end
 
 --[[
-    Removes an item from the categories cache
+    Removes an item from the categories cache, removes only items that
+    are not currently within use
 
     @category: The category of the cached item to remove
-    @item: The name of the cached item to remove
     @count: The amount of cached items to remove, defaults to 1
 --]]
 
-function Module:remove(category: string, item: string, count: number?)
-    assert(self.cache[category] ~= nil, `"{category}" Category does not exist`)
-    assert(item ~= nil and item ~= "", `{item} Item parameter is invalid, make sure it isn't nil!`)
+function Module:remove(category: string, count: number?) : boolean | nil
+    assert(Module.cache[category] ~= nil, `"{category}" Category does not exist`)
 
-    local cacheCategory: {} = self.cache[category]
-    local items: {} = cacheCategory.items
+    local cacheCategory: category = Module.cache[category]
+    local items: typeof(category.items) = cacheCategory.items
 
     if next(items) ~= nil then
         if count then
@@ -129,12 +152,14 @@ function Module:remove(category: string, item: string, count: number?)
                 if
                     items[1]
                 then
-                    items[1] = nil -- Remove first item of the category
+                    table.remove(items, 1)
                 end
             end
+            return true
         else
             if items[1] then
-                items[1] = nil
+                table.remove(items, 1)
+                return true
             else
                 warn(`Failed to find items within the category!`)
             end
@@ -148,24 +173,45 @@ end
     "return" but that's a syntax statement.
 --]]
 
-function Module:rebound(object: (Model | BasePart) | nil)
-    if not self.inUse[object] then
+function Module:rebound(object: object| nil) : boolean | nil
+    if not Module.inUse[object] then
         warn(`Failed to find cached object data for {object}!`)
         return
     end
 
-    local category: string = self.inUse[object].category
+    local category: string = Module.inUse[object].category
 
-    if not self.cache[category] then
+    if not Module.cache[category] then
         warn(`Failed to find category {category}!`)
         return
     end
 
-    local cacheCategory: {} = self.cache[category]
-    local items: {} = cacheCategory.items
+    local cacheCategory: category = Module.cache[category]
+    local items: typeof(category.items) = cacheCategory.items
 
-    self.inUse[object] = nil
+    Module.inUse[object] = nil
     table.insert(items, object)
+
+    Module:_reset(object)
+    return true
+end
+
+--[[
+    Positions cached objects to their default position
+--]]
+
+function Module:_reset(object: object | nil)
+    if not object then
+        warn(`Failed to find object {object}!`)
+        return
+    end
+
+    -- Move object back to very far away
+    if object:IsA("Model") then
+        object:PivotTo(LARGE_CFRAME)
+    else
+        object.CFrame = LARGE_CFRAME
+    end
 end
 
 return Module

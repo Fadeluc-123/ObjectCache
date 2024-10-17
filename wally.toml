@@ -1,7 +1,7 @@
 [package]
 name = "fadeluc-123/objectcache"
 description = "A better way to cache 3D objects"
-version = "1.2.0"
+version = "2.2.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 exclude = ["**"]
@@ -16,4 +16,5 @@ include = [
 Promise = "evaera/promise@^4.0.0"
 
 [dev-dependencies]
-objectcache = "fadeluc-123/objectcache@1.1.0"
+ObjectCache = "fadeluc-123/objectcache@2.1.0"
+TestEZ = "roblox/testez@0.4.1"
